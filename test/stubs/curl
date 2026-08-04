@@ -1,0 +1,32 @@
+#!/bin/sh
+# Fake curl used by tests to avoid real network calls.
+# Controlled via env vars:
+#   CURL_LOG        - if set, append "$*" here for assertions
+#   CURL_STUB_EXIT  - if set, exit with this code (simulates curl failure)
+#   CURL_STUB_IP    - response for the ipify (own-IP discovery) call
+#   CURL_STUB_JSON  - response for the freeipapi (lookup) call
+set -eu
+
+if [ -n "${CURL_LOG:-}" ]; then
+  printf '%s\n' "$*" >> "$CURL_LOG"
+fi
+
+if [ -n "${CURL_STUB_EXIT:-}" ]; then
+  exit "$CURL_STUB_EXIT"
+fi
+
+case "$*" in
+  *api64.ipify.org*)
+    printf '%s' "${CURL_STUB_IP:-203.0.113.5}"
+    ;;
+  *freeipapi.com*)
+    json="${CURL_STUB_JSON:-}"
+    if [ -z "$json" ]; then
+      json='{}'
+    fi
+    printf '%s' "$json"
+    ;;
+  *)
+    exit 1
+    ;;
+esac
