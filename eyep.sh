@@ -15,7 +15,7 @@ Flags:
   -4, --ipv4       Force IPv4 network connection
   -6, --ipv6       Force IPv6 network connection
   -h, --help       Display this help message
-      --version    Display version information
+  -V, --version    Display version information
 
 Short flags may be combined, e.g. -ij4.
 
@@ -82,6 +82,10 @@ eyep() {
             4) CURL_IP_FLAGS="-4" ;;
             6) CURL_IP_FLAGS="-6" ;;
             h) usage 0 ;;
+            V)
+              printf '%s\n' "$VERSION"
+              exit 0
+              ;;
             *)
               printf 'Error: Unknown flag -%s\n\n' "$flag" >&2
               usage 1
@@ -115,7 +119,7 @@ eyep() {
 
   # Step 1: Determine target IP if omitted
   if [ -z "$TARGET_IP" ]; then
-    TARGET_IP=$(curl -fsSL $CURL_IP_FLAGS "https://api64.ipify.org" 2>/dev/null)
+    TARGET_IP=$(curl -fsSL $CURL_IP_FLAGS "https://api64.ipify.org" 2>/dev/null) || true
     if [ -z "$TARGET_IP" ]; then
       printf 'Error: Could not determine public IP address.\n' >&2
       return 1
@@ -133,7 +137,7 @@ eyep() {
   fi
 
   # Step 3: Fetch API response
-  data=$(curl -fsSL $CURL_IP_FLAGS "https://freeipapi.com/api/json/${TARGET_IP}" 2>/dev/null)
+  data=$(curl -fsSL $CURL_IP_FLAGS "https://freeipapi.com/api/json/${TARGET_IP}" 2>/dev/null) || true
   if [ -z "$data" ]; then
     printf 'Error: Failed to fetch data for IP %s.\n' "$TARGET_IP" >&2
     return 1
