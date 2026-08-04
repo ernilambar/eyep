@@ -29,6 +29,42 @@ EOF
   exit "${1:-0}"
 }
 
+# Abort with a clear message if a required command is missing.
+require() {
+  command -v "$1" >/dev/null 2>&1 || {
+    printf 'Error: Required command not found: %s\n' "$1" >&2
+    exit 1
+  }
+}
+
+# Return 0 if the argument looks like a valid IPv4 or IPv6 address.
+is_valid_ip() {
+  case "$1" in
+    *.*.*.*)
+      # IPv4: four dot-separated decimal octets in range 0-255.
+      ( IFS=.
+        # shellcheck disable=SC2086
+        set -- $1
+        [ $# -eq 4 ] || exit 1
+        for octet; do
+          case "$octet" in
+            '' | *[!0-9]*) exit 1 ;;
+          esac
+          [ "$octet" -le 255 ] || exit 1
+        done )
+      ;;
+    *:*)
+      # IPv6: hex digits and colons only.
+      case "$1" in
+        *[!0-9A-Fa-f:]*) return 1 ;;
+      esac
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 eyep() {
   IP_ONLY=0
   JSON_OUTPUT=0
@@ -117,8 +153,15 @@ eyep() {
     fi
   fi
 
+  # Validate an explicitly provided target IP.
+  if [ -n "$TARGET_IP" ] && ! is_valid_ip "$TARGET_IP"; then
+    printf 'Error: Invalid IP address: %s\n' "$TARGET_IP" >&2
+    return 1
+  fi
+
   # Step 1: Determine target IP if omitted
   if [ -z "$TARGET_IP" ]; then
+    require curl
     TARGET_IP=$(curl -fsSL $CURL_IP_FLAGS "https://api64.ipify.org" 2>/dev/null) || true
     if [ -z "$TARGET_IP" ]; then
       printf 'Error: Could not determine public IP address.\n' >&2
@@ -137,6 +180,7 @@ eyep() {
   fi
 
   # Step 3: Fetch API response
+  require curl
   data=$(curl -fsSL $CURL_IP_FLAGS "https://freeipapi.com/api/json/${TARGET_IP}" 2>/dev/null) || true
   if [ -z "$data" ]; then
     printf 'Error: Failed to fetch data for IP %s.\n' "$TARGET_IP" >&2
@@ -149,21 +193,26 @@ eyep() {
     printf '%s\n' "$data"
   else
     # Output human-readable key-value table
-    printf '%s' "$data" | jq -r '
+    require jq
+    if ! table=$(printf '%s' "$data" | jq -r '
       if .ipAddress then
         [
           ["IP", .ipAddress],
-          ["IP Version", (if .ipVersion then .ipVersion | tostring else "N/A" end)],
-          ["Country", "\(.countryName) (\(.countryCode))"],
-          ["Region", .regionName],
-          ["City", "\(.cityName) \(.zipCode)"],
-          ["Coordinates", "\(.latitude), \(.longitude)"],
-          ["Timezone", (.timeZones | join(", "))]
+          ["IP Version", (.ipVersion // "N/A" | tostring)],
+          ["Country", "\(.countryName // "N/A") (\(.countryCode // "N/A"))"],
+          ["Region", (.regionName // "N/A")],
+          ["City", "\(.cityName // "N/A") \(.zipCode // "")"],
+          ["Coordinates", "\(.latitude // "N/A"), \(.longitude // "N/A")"],
+          ["Timezone", ((.timeZones // []) | join(", "))]
         ] | .[] | "\(.[0]): \(.[1])"
       else
         "Error: Invalid IP address or API lookup error."
       end
-    '
+    ' 2>/dev/null); then
+      printf 'Error: Unexpected response from API for IP %s.\n' "$TARGET_IP" >&2
+      return 1
+    fi
+    printf '%s\n' "$table"
   fi
 }
 
