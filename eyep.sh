@@ -12,7 +12,7 @@ Inspect geographical and network details for an IP address or your local machine
 Flags:
   -i, --ip-only    Print only the IP address (concise mode)
   -j, --json       Output raw structured JSON
-  -4, --ipv4       Force IPv4 network connection
+  -4, --ipv4       Force IPv4 network connection (default)
   -6, --ipv6       Force IPv6 network connection
   -h, --help       Display this help message
   -V, --version    Display version information
@@ -68,7 +68,8 @@ is_valid_ip() {
 eyep() {
   IP_ONLY=0
   JSON_OUTPUT=0
-  CURL_IP_FLAGS=""
+  # Default to IPv4; -4/-6 override this.
+  CURL_IP_FLAGS="-4"
   TARGET_IP=""
 
   # POSIX argument and flag parser
