@@ -182,7 +182,7 @@ eyep() {
 
   # Step 3: Fetch API response
   require curl
-  data=$(curl -fsSL $CURL_IP_FLAGS "https://freeipapi.com/api/json/${TARGET_IP}" 2>/dev/null) || true
+  data=$(curl -fsSL $CURL_IP_FLAGS "http://ip-api.com/json/${TARGET_IP}?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,query" 2>/dev/null) || true
   if [ -z "$data" ]; then
     printf 'Error: Failed to fetch data for IP %s.\n' "$TARGET_IP" >&2
     return 1
@@ -190,29 +190,35 @@ eyep() {
 
   # Step 4: Render JSON or Key-Value output
   if [ "$JSON_OUTPUT" -eq 1 ]; then
-    # Output raw JSON directly (or minify/validate with jq if preferred)
     printf '%s\n' "$data"
   else
-    # Output human-readable key-value table
     require jq
     if ! table=$(printf '%s' "$data" | jq -r '
-      if .ipAddress then
+      if .status == "success" then
         [
-          ["IP", .ipAddress],
-          ["IP Version", (.ipVersion // "N/A" | tostring)],
-          ["Country", "\(.countryName // "N/A") (\(.countryCode // "N/A"))"],
-          ["Region", (.regionName // "N/A")],
-          ["City", "\(.cityName // "N/A") \(.zipCode // "")"],
-          ["Coordinates", "\(.latitude // "N/A"), \(.longitude // "N/A")"],
-          ["Timezone", ((.timeZones // []) | join(", "))]
+          ["IP", (.query // "N/A")],
+          ["Country", "\(.country // "N/A") (\(.countryCode // "N/A"))"],
+          ["Region", (.regionName // "N/A" | if . == "" then "N/A" else . end)],
+          ["City", ((.city // "N/A" | if . == "" then "N/A" else . end) + " " + (.zip // "")) | rtrimstr(" ") | if . == "" then "N/A" else . end],
+          ["Coordinates", "\(.lat // "N/A"), \(.lon // "N/A")"],
+          ["Timezone", (.timezone // "N/A" | if . == "" then "N/A" else . end)],
+          ["ISP", (.isp // "N/A" | if . == "" then "N/A" else . end)],
+          ["Org", (.org // "N/A" | if . == "" then "N/A" else . end)],
+          ["AS", (.as // "N/A" | if . == "" then "N/A" else . end)]
         ] | .[] | "\(.[0]): \(.[1])"
       else
-        "Error: Invalid IP address or API lookup error."
+        "Error: \(.message // "Invalid IP address or API lookup error.")"
       end
     ' 2>/dev/null); then
       printf 'Error: Unexpected response from API for IP %s.\n' "$TARGET_IP" >&2
       return 1
     fi
+    case "$table" in
+      Error:*)
+        printf '%s\n' "$table" >&2
+        return 1
+        ;;
+    esac
     printf '%s\n' "$table"
   fi
 }

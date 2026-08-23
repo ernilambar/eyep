@@ -72,7 +72,7 @@ setup() {
 }
 
 @test "human-readable output shows N/A for missing fields" {
-  CURL_STUB_JSON='{"ipAddress":"8.8.8.8"}' run "$SCRIPT" 8.8.8.8
+  CURL_STUB_JSON='{"status":"success","query":"8.8.8.8"}' run "$SCRIPT" 8.8.8.8
   [ "$status" -eq 0 ]
   [[ "$output" == *"Country: N/A (N/A)"* ]]
   [[ "$output" == *"Region: N/A"* ]]
@@ -131,7 +131,7 @@ setup() {
 }
 
 @test "human-readable output renders key-value table from API JSON" {
-  CURL_STUB_JSON='{"ipAddress":"8.8.8.8","ipVersion":4,"countryName":"United States","countryCode":"US","regionName":"California","cityName":"Mountain View","zipCode":"94043","latitude":37.4,"longitude":-122.1,"timeZones":["America/Los_Angeles"]}' \
+  CURL_STUB_JSON='{"status":"success","query":"8.8.8.8","country":"United States","countryCode":"US","regionName":"California","city":"Mountain View","zip":"94043","lat":37.4,"lon":-122.1,"timezone":"America/Los_Angeles","isp":"Google LLC","org":"Google Public DNS","as":"AS15169 Google LLC"}' \
     run "$SCRIPT" 8.8.8.8
   [ "$status" -eq 0 ]
   [[ "$output" == *"IP: 8.8.8.8"* ]]
