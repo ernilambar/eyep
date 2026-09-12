@@ -15,8 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install bats
-        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq shellcheck
+          sudo npm install -g bats
+
+      - name: Lint script
+        run: |
+          sh -n eyep.sh
+          shellcheck eyep.sh
 
       - name: Run tests
         run: bats test/

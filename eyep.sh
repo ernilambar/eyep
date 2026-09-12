@@ -4,7 +4,11 @@ set -eu
 VERSION="1.0.0"
 
 usage() {
-  cat <<EOF
+  status="${1:-0}"
+  # Explicit help (-h/--help) goes to stdout; usage printed on an error goes to stderr.
+  fd=1
+  [ "$status" -eq 0 ] || fd=2
+  cat <<EOF >&$fd
 Usage: ${0##*/} [FLAGS] [IP_ADDRESS]
 
 Inspect geographical and network details for an IP address or your local machine.
@@ -26,7 +30,7 @@ Examples:
   eyep -j 8.8.8.8 | jq .  # Pretty-printed JSON
   eyep -ij4               # IP-only, JSON, forced over IPv4
 EOF
-  exit "${1:-0}"
+  exit "$status"
 }
 
 # Abort with a clear message if a required command is missing.
@@ -57,6 +61,29 @@ is_valid_ip() {
       # IPv6: hex digits and colons only.
       case "$1" in
         *[!0-9A-Fa-f:]*) return 1 ;;
+      esac
+      # Require at least one hex digit; allow only the all-zero "::".
+      case "$1" in
+        :: | *[0-9A-Fa-f]*) ;;
+        *) return 1 ;;
+      esac
+      # Reject triple colons.
+      case "$1" in
+        *:::*) return 1 ;;
+      esac
+      # At most one "::" compression run.
+      rest="${1#*::}"
+      if [ "$rest" != "$1" ]; then
+        case "$rest" in
+          *::*) return 1 ;;
+        esac
+      fi
+      # Reject leading or trailing single colons.
+      case "$1" in
+        :*) case "$1" in ::*) ;; *) return 1 ;; esac ;;
+      esac
+      case "$1" in
+        *:) case "$1" in *::) ;; *) return 1 ;; esac ;;
       esac
       ;;
     *)
