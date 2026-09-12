@@ -1,10 +1,12 @@
 #!/bin/sh
 # Fake curl used by tests to avoid real network calls.
 # Controlled via env vars:
-#   CURL_LOG        - if set, append "$*" here for assertions
-#   CURL_STUB_EXIT  - if set, exit with this code (simulates curl failure)
-#   CURL_STUB_IP    - response for the ipify (own-IP discovery) call
-#   CURL_STUB_JSON  - response for the ip-api (lookup) call
+#   CURL_LOG             - if set, append "$*" here for assertions
+#   CURL_STUB_EXIT       - if set, exit with this code for every call
+#   CURL_STUB_IP_EXIT    - exit code for the ipify (own-IP discovery) call only
+#   CURL_STUB_JSON_EXIT  - exit code for the ip-api (lookup) call only
+#   CURL_STUB_IP         - response for the ipify (own-IP discovery) call
+#   CURL_STUB_JSON       - response for the ip-api (lookup) call
 set -eu
 
 if [ -n "${CURL_LOG:-}" ]; then
@@ -17,21 +19,16 @@ fi
 
 case "$*" in
   *api64.ipify.org*)
+    if [ -n "${CURL_STUB_IP_EXIT:-}" ]; then
+      exit "$CURL_STUB_IP_EXIT"
+    fi
     printf '%s' "${CURL_STUB_IP:-203.0.113.5}"
     ;;
   *ip-api.com*)
-    json="${CURL_STUB_JSON:-}"
-    if [ -z "$json" ]; then
-      json='{}'
+    if [ -n "${CURL_STUB_JSON_EXIT:-}" ]; then
+      exit "$CURL_STUB_JSON_EXIT"
     fi
-    printf '%s' "$json"
-    ;;
-  *freeipapi.com*)
-    json="${CURL_STUB_JSON:-}"
-    if [ -z "$json" ]; then
-      json='{}'
-    fi
-    printf '%s' "$json"
+    printf '%s' "${CURL_STUB_JSON:-}"
     ;;
   *)
     exit 1
