@@ -26,5 +26,8 @@ jobs:
           sh -n eyep.sh
           shellcheck eyep.sh
 
+      - name: Validate changelog
+        run: npx --yes @nilambar/flatlog validate
+
       - name: Run tests
         run: bats test/

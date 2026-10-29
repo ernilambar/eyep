@@ -23,6 +23,7 @@
 - **`set -eu` at the top of every script** — exit on error and undefined variables.
 - **Every user-facing error goes to stderr** with a clear message; exit non-zero.
 - **Tests use stubs, never real network calls** — see `test/stubs/curl` and the env vars `CURL_STUB_IP`, `CURL_STUB_JSON`, `CURL_STUB_EXIT`, `CURL_LOG`.
+- **Keep `CHANGELOG.md` current with [flatlog](https://github.com/ernilambar/flatlog)** — `npx @nilambar/flatlog bullet "Added: ..."` for each user-facing change, `npx @nilambar/flatlog release <version>` when tagging. Prefixes: `Added:`, `Changed:`, `Fixed:`.
 - **`VERSION` is the single source of truth** for the release tag; it's read by tests and the release workflow.
 
 ## Quality Gate
@@ -31,3 +32,4 @@ Before declaring a task complete, run in order and confirm each exits 0:
 
 1. `sh -n eyep.sh` — syntax check
 2. `bats test/` — full test suite
+3. `npx @nilambar/flatlog validate` — changelog structure (see `CHANGELOG.md`)
