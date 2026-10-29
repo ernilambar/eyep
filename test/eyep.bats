@@ -136,6 +136,38 @@ setup() {
   done
 }
 
+@test "IPv6 addresses with too many or oversized groups are rejected" {
+  for ip in 1:2:3:4:5:6:7:8:9:10 12345::1 fffff::1 00000000000000001::1 \
+    1:2:3:4:5:6:7:8::9 ::1:2:3:4:5:6:7:8 1:2:3:4:5:6:7:1.2.3.4; do
+    run --separate-stderr "$SCRIPT" "$ip"
+    [ "$status" -eq 1 ]
+    [[ "$stderr" == *"Invalid IP address: $ip"* ]]
+  done
+}
+
+@test "full-length IPv6 address is accepted" {
+  ip="2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"
+  run "$SCRIPT" -ij "$ip"
+  [ "$status" -eq 0 ]
+  [ "$output" = "{\"ip\":\"$ip\"}" ]
+}
+
+@test "IPv6 with an embedded IPv4 tail is accepted" {
+  for ip in ::ffff:192.168.1.1 1:2:3:4:5:6:1.2.3.4 ::1.2.3.4; do
+    run "$SCRIPT" -ij "$ip"
+    [ "$status" -eq 0 ]
+    [ "$output" = "{\"ip\":\"$ip\"}" ]
+  done
+}
+
+@test "IPv6 with an invalid embedded IPv4 tail is rejected" {
+  for ip in ::ffff:999.1.1.1 ::1.2.3 ::ffff:1.2.3.4.5; do
+    run --separate-stderr "$SCRIPT" "$ip"
+    [ "$status" -eq 1 ]
+    [[ "$stderr" == *"Invalid IP address: $ip"* ]]
+  done
+}
+
 #
 # Argument separators
 #
@@ -280,6 +312,30 @@ setup() {
   [[ "$stderr" == *"Could not determine public IP address"* ]]
 }
 
+@test "errors when IP discovery returns something that is not an IP" {
+  CURL_STUB_IP='<html>rate limited</html>' run --separate-stderr "$SCRIPT" -i
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"Could not determine public IP address"* ]]
+}
+
+@test "invalid discovered IP is never emitted as JSON" {
+  CURL_STUB_IP='not-an-ip' run --separate-stderr "$SCRIPT" -ij
+  [ "$status" -eq 1 ]
+  [ -z "$output" ]
+  [[ "$stderr" == *"Could not determine public IP address"* ]]
+  ! grep -q 'ip-api.com' "$CURL_LOG"
+}
+
+@test "network calls use connect and total timeouts" {
+  CURL_STUB_IP="198.51.100.7" \
+    CURL_STUB_JSON='{"status":"success","query":"198.51.100.7"}' \
+    run "$SCRIPT" -j
+  [ "$status" -eq 0 ]
+  [ "$(grep -c -- '--connect-timeout' "$CURL_LOG")" -eq 2 ]
+  [ "$(grep -c -- '--max-time' "$CURL_LOG")" -eq 2 ]
+}
+
 @test "errors when the lookup fails after a successful discovery" {
   CURL_STUB_IP="203.0.113.9" CURL_STUB_JSON_EXIT=1 \
     run --separate-stderr "$SCRIPT" -j
@@ -349,6 +405,13 @@ setup() {
   [ "$status" -eq 1 ]
   [ -z "$output" ]
   [[ "$stderr" == *"Required command not found: jq"* ]]
+}
+
+@test "missing jq is detected before any network request" {
+  run --separate-stderr env PATH="$STUBS" "$SCRIPT" 8.8.8.8
+  [ "$status" -eq 1 ]
+  [[ "$stderr" == *"Required command not found: jq"* ]]
+  [ ! -e "$CURL_LOG" ]
 }
 
 #

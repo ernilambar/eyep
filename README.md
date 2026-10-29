@@ -10,13 +10,16 @@ Inspect geographical and network details for an IP address or your local machine
 brew install ernilambar/tap/eyep
 ```
 
-**Prebuilt binary:**
+**Standalone script** (no clone needed):
 
 ```sh
 curl -L -o eyep https://github.com/ernilambar/eyep/releases/latest/download/eyep
 chmod +x eyep
 sudo mv eyep /usr/local/bin/
 ```
+
+This is the same shell script with the release version baked in; it still needs
+`curl` and `jq` installed locally.
 
 **From source:**
 
@@ -52,7 +55,12 @@ Short flags may be combined, e.g. `-ij4`.
 
 ## Requirements
 
-`curl`, `jq`
+- `curl` — required for all network lookups
+- `jq` — required only for the human-readable table; `-j` and `-i` work without it
+
+Network calls use a 5 second connect timeout and a 10 second total timeout.
+The lookup uses the free [ip-api.com](https://ip-api.com) endpoint, which is rate
+limited and served over plain HTTP only.
 
 ## Testing
 

@@ -1,7 +1,11 @@
 #!/bin/sh
 set -eu
 
-VERSION="1.0.0"
+VERSION="1.1.0"
+
+# Network timeouts (seconds) so an unresponsive endpoint cannot hang the CLI.
+CONNECT_TIMEOUT=5
+MAX_TIME=10
 
 usage() {
   status="${1:-0}"
@@ -41,54 +45,97 @@ require() {
   }
 }
 
-# Return 0 if the argument looks like a valid IPv4 or IPv6 address.
-is_valid_ip() {
+# Return 0 if the argument is a valid dotted-decimal IPv4 address.
+is_valid_ipv4() {
   case "$1" in
-    *.*.*.*)
-      # IPv4: four dot-separated decimal octets in range 0-255.
-      ( IFS=.
-        # shellcheck disable=SC2086
-        set -- $1
-        [ $# -eq 4 ] || exit 1
-        for octet; do
-          case "$octet" in
-            '' | *[!0-9]*) exit 1 ;;
-          esac
-          [ "$octet" -le 255 ] || exit 1
-        done )
-      ;;
-    *:*)
-      # IPv6: hex digits and colons only.
-      case "$1" in
-        *[!0-9A-Fa-f:]*) return 1 ;;
+    '' | *[!0-9.]*) return 1 ;;
+    *.*.*.*) ;;
+    *) return 1 ;;
+  esac
+  # Exactly four dot-separated octets, each in range 0-255.
+  ( IFS=.
+    # shellcheck disable=SC2086
+    set -- $1
+    [ $# -eq 4 ] || exit 1
+    for octet; do
+      case "$octet" in
+        '' | *[!0-9]*) exit 1 ;;
       esac
-      # Require at least one hex digit; allow only the all-zero "::".
-      case "$1" in
-        :: | *[0-9A-Fa-f]*) ;;
+      [ "$octet" -le 255 ] || exit 1
+    done )
+}
+
+# Count the colon-separated hex groups in an IPv6 fragment. Sets GROUP_COUNT
+# and returns non-zero if any group is empty or longer than four hex digits.
+count_groups() {
+  GROUP_COUNT=0
+  case "$1" in
+    '') return 0 ;;
+    :* | *:) return 1 ;;
+  esac
+  rest="$1"
+  while [ -n "$rest" ]; do
+    case "$rest" in
+      *:*) group="${rest%%:*}" ; rest="${rest#*:}" ;;
+      *) group="$rest" ; rest="" ;;
+    esac
+    case "$group" in
+      '' | *[!0-9A-Fa-f]*) return 1 ;;
+    esac
+    [ "${#group}" -le 4 ] || return 1
+    GROUP_COUNT=$((GROUP_COUNT + 1))
+  done
+  return 0
+}
+
+# Return 0 if the argument is a valid IPv6 address, including forms with an
+# embedded IPv4 tail such as ::ffff:192.168.0.1.
+is_valid_ipv6() {
+  addr="$1"
+
+  # An embedded IPv4 tail stands for the last two hex groups.
+  case "$addr" in
+    *.*)
+      case "$addr" in
+        *:*) ;;
         *) return 1 ;;
       esac
-      # Reject triple colons.
-      case "$1" in
-        *:::*) return 1 ;;
-      esac
-      # At most one "::" compression run.
-      rest="${1#*::}"
-      if [ "$rest" != "$1" ]; then
-        case "$rest" in
-          *::*) return 1 ;;
-        esac
-      fi
-      # Reject leading or trailing single colons.
-      case "$1" in
-        :*) case "$1" in ::*) ;; *) return 1 ;; esac ;;
-      esac
-      case "$1" in
-        *:) case "$1" in *::) ;; *) return 1 ;; esac ;;
-      esac
+      is_valid_ipv4 "${addr##*:}" || return 1
+      addr="${addr%:*}:0:0"
+      ;;
+  esac
+
+  # Only hex digits and colons may remain.
+  case "$addr" in
+    '' | *[!0-9A-Fa-f:]*) return 1 ;;
+  esac
+  # ":::" is never valid.
+  case "$addr" in
+    *:::*) return 1 ;;
+  esac
+
+  case "$addr" in
+    *::*)
+      count_groups "${addr%%::*}" || return 1
+      left="$GROUP_COUNT"
+      count_groups "${addr#*::}" || return 1
+      # "::" must stand in for at least one zero group.
+      [ $((left + GROUP_COUNT)) -le 7 ] || return 1
       ;;
     *)
-      return 1
+      count_groups "$addr" || return 1
+      [ "$GROUP_COUNT" -eq 8 ] || return 1
       ;;
+  esac
+}
+
+# Return 0 if the argument is a valid IPv4 or IPv6 address.
+is_valid_ip() {
+  # Colons first: IPv4-mapped IPv6 addresses also contain dots.
+  case "$1" in
+    *:*) is_valid_ipv6 "$1" ;;
+    *.*) is_valid_ipv4 "$1" ;;
+    *) return 1 ;;
   esac
 }
 
@@ -190,8 +237,10 @@ eyep() {
   # Step 1: Determine target IP if omitted
   if [ -z "$TARGET_IP" ]; then
     require curl
-    TARGET_IP=$(curl -fsSL $CURL_IP_FLAGS "https://api64.ipify.org" 2>/dev/null) || true
-    if [ -z "$TARGET_IP" ]; then
+    TARGET_IP=$(curl -fsSL --connect-timeout "$CONNECT_TIMEOUT" --max-time "$MAX_TIME" $CURL_IP_FLAGS "https://api64.ipify.org" 2>/dev/null) || true
+    # Only trust the response if it really is an IP address; it is embedded in
+    # JSON output and used to build the lookup URL.
+    if [ -z "$TARGET_IP" ] || ! is_valid_ip "$TARGET_IP"; then
       printf 'Error: Could not determine public IP address.\n' >&2
       return 1
     fi
@@ -209,7 +258,9 @@ eyep() {
 
   # Step 3: Fetch API response
   require curl
-  data=$(curl -fsSL $CURL_IP_FLAGS "http://ip-api.com/json/${TARGET_IP}?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,query" 2>/dev/null) || true
+  # Table output needs jq; fail before spending a network request.
+  [ "$JSON_OUTPUT" -eq 1 ] || require jq
+  data=$(curl -fsSL --connect-timeout "$CONNECT_TIMEOUT" --max-time "$MAX_TIME" $CURL_IP_FLAGS "http://ip-api.com/json/${TARGET_IP}?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,query" 2>/dev/null) || true
   if [ -z "$data" ]; then
     printf 'Error: Failed to fetch data for IP %s.\n' "$TARGET_IP" >&2
     return 1
@@ -219,7 +270,6 @@ eyep() {
   if [ "$JSON_OUTPUT" -eq 1 ]; then
     printf '%s\n' "$data"
   else
-    require jq
     if ! table=$(printf '%s' "$data" | jq -r '
       if .status == "success" then
         [
