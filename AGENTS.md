@@ -2,34 +2,36 @@
 
 ## Overview
 
-`eyep` is a POSIX-compliant shell CLI that inspects geographical and network details for an IP address or the local machine. Core stack: `sh`, `curl`, `jq`, and `bats` for testing.
+`eyep` is a CLI that inspects geographical and network details for an IP address or the local machine. Core stack: Go (standard library only), tested with `go test`.
 
 ## Setup
 
-- Runtime dependencies: `curl`, `jq`
-- Test dependency: `bats` (`apt-get install -y bats` on Ubuntu)
-- No build step or package install — the single file `eyep.sh` is the project.
+- Runtime dependencies: none (single static binary)
+- Build dependency: Go 1.22+
+- No package install; the module has no third-party dependencies
 
 ## Commands
 
-- Run all tests: `bats test/`
-- Validate script syntax: `sh -n eyep.sh`
-- Run the CLI directly: `./eyep.sh -h`
+- Run all tests: `go test ./...`
+- Vet: `go vet ./...`
+- Format check: `gofmt -l .`
+- Run the CLI directly: `go run . -h`
+- Build: `go build -o eyep .`
 
 ## Conventions
 
-- **POSIX `sh` only** — no bashisms. Always run via `sh eyep.sh` or with a `#!/bin/sh` shebang. Verify with `sh -n`.
-- **Tabs for indentation** — enforced by `.editorconfig`. Spaces only in `.md` and `.json`.
-- **`set -eu` at the top of every script** — exit on error and undefined variables.
-- **Every user-facing error goes to stderr** with a clear message; exit non-zero.
-- **Tests use stubs, never real network calls** — see `test/stubs/curl` and the env vars `CURL_STUB_IP`, `CURL_STUB_JSON`, `CURL_STUB_EXIT`, `CURL_LOG`.
+- **Standard library only** — no third-party modules.
+- **gofmt** — tabs for indentation; `gofmt -l .` must print nothing.
+- **Every user-facing error goes to stderr** with a clear message and a non-zero exit code.
+- **Tests use `httptest` and injected backends, never real network calls** — see `runWith` in `main.go` and `testBackend` in `api_test.go`.
 - **Keep `CHANGELOG.md` current with [flatlog](https://github.com/ernilambar/flatlog)** — `npx @nilambar/flatlog bullet "Added: ..."` for each user-facing change, `npx @nilambar/flatlog release <version>` when tagging. Prefixes: `Added:`, `Changed:`, `Fixed:`.
-- **`VERSION` is the single source of truth** for the release tag; it's read by tests and the release workflow.
+- **`VERSION` is the single source of truth** for the release tag. It is embedded into the binary and the release workflow rejects a tag that disagrees with it.
 
 ## Quality Gate
 
 Before declaring a task complete, run in order and confirm each exits 0:
 
-1. `sh -n eyep.sh` — syntax check
-2. `bats test/` — full test suite
-3. `npx @nilambar/flatlog validate` — changelog structure (see `CHANGELOG.md`)
+1. `gofmt -l .` — formatting check (must print nothing)
+2. `go vet ./...` — static analysis
+3. `go test ./...` — full test suite
+4. `npx @nilambar/flatlog validate` — changelog structure (see `CHANGELOG.md`)
