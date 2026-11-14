@@ -7,7 +7,9 @@ Inspect geographical and network details for an IP address or your local machine
 **Homebrew** (macOS):
 
 ```sh
-brew install ernilambar/tap/eyep
+brew tap ernilambar/tap
+brew trust ernilambar/tap
+brew install eyep
 ```
 
 **Prebuilt binary** (no runtime dependencies):
