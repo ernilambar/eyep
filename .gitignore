@@ -36,6 +36,10 @@ Thumbs.db
 *.zip
 *~
 
+# Go build output
+/eyep
+/dist/
+
 # Project folders
 /build/
 /deploy/

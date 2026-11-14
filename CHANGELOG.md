@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 - 2026-11-14
+- Changed: rewrote the CLI in Go and distribute it as a prebuilt static binary
+- Changed: removed the runtime dependency on `curl` and `jq`
+- Changed: `VERSION` is the single source of truth
+
 ## 1.1.0 - 2026-10-29
 - Added: stricter IPv6 validation, including compressed and IPv4-mapped forms
 - Changed: network requests now use a 5 second connect timeout and 10 second total timeout

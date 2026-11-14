@@ -10,24 +10,25 @@ Inspect geographical and network details for an IP address or your local machine
 brew install ernilambar/tap/eyep
 ```
 
-**Standalone script** (no clone needed):
+**Prebuilt binary** (no runtime dependencies):
 
 ```sh
+# Linux x86_64
 curl -L -o eyep https://github.com/ernilambar/eyep/releases/latest/download/eyep
 chmod +x eyep
 sudo mv eyep /usr/local/bin/
 ```
 
-This is the same shell script with the release version baked in; it still needs
-`curl` and `jq` installed locally.
+Replace `eyep` in the download URL with `eyep-linux-arm64`, `eyep-darwin-amd64`
+or `eyep-darwin-arm64` for other platforms.
 
-**From source:**
+**From source** (Go 1.22+):
 
 ```sh
 git clone https://github.com/ernilambar/eyep.git
 cd eyep
-chmod +x eyep.sh
-sudo mv eyep.sh /usr/local/bin/eyep
+go build -o eyep .
+sudo mv eyep /usr/local/bin/
 ```
 
 ## Usage
@@ -55,8 +56,7 @@ Short flags may be combined, e.g. `-ij4`.
 
 ## Requirements
 
-- `curl` — required for all network lookups
-- `jq` — required only for the human-readable table; `-j` and `-i` work without it
+None at runtime — `eyep` is a static binary. Building from source needs Go 1.22+.
 
 Network calls use a 5 second connect timeout and a 10 second total timeout.
 The lookup uses the free [ip-api.com](https://ip-api.com) endpoint, which is rate
@@ -65,7 +65,7 @@ limited and served over plain HTTP only.
 ## Testing
 
 ```sh
-bats test/
+go test ./...
 ```
 
 ## License
