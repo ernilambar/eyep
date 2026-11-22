@@ -1,3 +1,3 @@
 module github.com/ernilambar/eyep
 
-go 1.22
+go 1.27

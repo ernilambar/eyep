@@ -35,13 +35,11 @@ jobs:
         run: |
           set -eu
           mkdir -p dist
-          build() {
-            CGO_ENABLED=0 GOOS="$1" GOARCH="$2" go build -trimpath -ldflags "-s -w" -o "dist/$3" .
-          }
-          build linux amd64 eyep
-          build linux arm64 eyep-linux-arm64
-          build darwin amd64 eyep-darwin-amd64
-          build darwin arm64 eyep-darwin-arm64
+          # Linux: x86_64 and arm64.
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/eyep .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/eyep-linux-arm64 .
+          # macOS: Apple Silicon only, macOS 15+ minimum.
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -macos 15.0" -o dist/eyep-darwin-arm64 .
 
       - name: Create release
         env:

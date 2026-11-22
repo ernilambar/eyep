@@ -7,7 +7,7 @@
 ## Setup
 
 - Runtime dependencies: none (single static binary)
-- Build dependency: Go 1.22+
+- Build dependency: Go 1.27+
 - No package install; the module has no third-party dependencies
 
 ## Commands

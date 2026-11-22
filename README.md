@@ -21,10 +21,10 @@ chmod +x eyep
 sudo mv eyep /usr/local/bin/
 ```
 
-Replace `eyep` in the download URL with `eyep-linux-arm64`, `eyep-darwin-amd64`
-or `eyep-darwin-arm64` for other platforms.
+Replace `eyep` in the download URL with `eyep-linux-arm64` or
+`eyep-darwin-arm64` for other platforms.
 
-**From source** (Go 1.22+):
+**From source** (Go 1.27+):
 
 ```sh
 git clone https://github.com/ernilambar/eyep.git
@@ -58,7 +58,14 @@ Short flags may be combined, e.g. `-ij4`.
 
 ## Requirements
 
-None at runtime — `eyep` is a static binary. Building from source needs Go 1.22+.
+None at runtime — `eyep` is a static binary.
+
+| Platform | Minimum |
+| -------- | ------- |
+| macOS    | 15.0 (Apple Silicon only; Intel builds are not provided) |
+| Linux    | x86_64 or arm64 |
+
+Building from source needs Go 1.27+.
 
 Network calls use a 5 second connect timeout and a 10 second total timeout.
 The lookup uses the free [ip-api.com](https://ip-api.com) endpoint, which is rate

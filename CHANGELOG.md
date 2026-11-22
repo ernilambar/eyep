@@ -1,5 +1,9 @@
 # Changelog
 
+## X.X.X - YYYY-MM-DD
+- Changed: dropped Intel macOS builds; macOS 15 on Apple Silicon is now the minimum
+- Changed: minimum Go version for building from source is 1.27
+
 ## 1.2.0 - 2026-11-14
 - Changed: rewrote the CLI in Go and distribute it as a prebuilt static binary
 - Changed: removed the runtime dependency on `curl` and `jq`
